@@ -108,8 +108,10 @@ var asteroids = (function() {
         addGoatIco();
 
         var goat = new Image();
-        goat.src = urlPath + "/goat.png";
+        goat.src = urlPath + "goat.png";
         var drawOffset = {x: -84, y: -24};
+        var bwah = document.createElement("audio");
+        bwah.src = urlPath + "bwah.mp3";
 
 
 
@@ -729,7 +731,7 @@ var asteroids = (function() {
             /*
              == Events ==
              */
-
+            var forwardKeyIsDown = false;
             var eventKeydown = function(event) {
                 event = event || window.event;
                 if ( event.ctrlKey || event.shiftKey )
@@ -740,6 +742,15 @@ var asteroids = (function() {
                     case code(' '):
                         that.firedAt = 1;
                         break;
+                }
+
+                if (indexOf([code('up'),code('W')], event.keyCode) != -1) {
+                    // holding the keydown triggers the event many times, but we only want to use the first event per key press.
+                    // so, we keep track of the button state.
+                    if (!forwardKeyIsDown) {
+                        bwah.play();
+                    }
+                    forwardKeyIsDown = true;
                 }
 
                 // check here so we can stop propagation appropriately
@@ -778,6 +789,10 @@ var asteroids = (function() {
             var eventKeyup = function(event) {
                 event = event || window.event;
                 that.keysPressed[event.keyCode] = false;
+
+                if (indexOf([code('up'),code('W')], event.keyCode) != -1) {
+                    forwardKeyIsDown = false;
+                }
 
                 if ( indexOf([code('up'), code('down'), code('right'), code('left'), code(' '), code('B'), code('W'), code('A'), code('S'), code('D')], event.keyCode) != -1 ) {
                     if ( event.preventDefault )
