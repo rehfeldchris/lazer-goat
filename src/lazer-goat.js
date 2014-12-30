@@ -1,9 +1,9 @@
 // See license: https://github.com/erkie/erkie.github.com/blob/master/README
 
-var asteroids = (function() {
+var LazerGoat = (function() {
     // If you rename this file, you need to update this. It's used for detecting the current url, so that
     // it can make relative file paths.
-    var nameOfThisFile = "asteroids.js";
+    var nameOfThisFile = "lazer-goat.js";
 
     // Get the url of wherever this script was loaded from
     var urlPath = (function getUrlPathOfHostedScript() {

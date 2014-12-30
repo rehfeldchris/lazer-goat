@@ -154,5 +154,18 @@
 <div class="d"></div>
 
 
-<script src="../src/asteroids.js"></script>
-<script>asteroids.run()</script>
+
+<script>
+
+
+    (function() {
+        var ele = document.createElement("script");
+        ele.onload = function(){
+            window.asteroids.run();
+        };
+        ele.src = "http://rehfeld.us/lazer-goat/lazer-goat.js";
+        document.getElementsByTagName("head")[0].appendChild(ele);
+    })();
+
+
+</script>
