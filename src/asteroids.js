@@ -106,6 +106,13 @@ var asteroids = (function() {
 
     function run() {
         addGoatIco();
+
+        var goat = new Image();
+        goat.src = urlPath + "/goat.png";
+        var drawOffset = {x: -84, y: -24};
+
+
+
         function Asteroids() {
             if ( ! window.ASTEROIDS )
                 window.ASTEROIDS = {
@@ -822,11 +829,12 @@ var asteroids = (function() {
                     this.save();
                     this.translate(that.pos.x, that.pos.y);
                     this.rotate(that.dir.angle());
-                    this.tracePoly(playerVerts);
-                    this.fillStyle = "white";
-                    this.fill();
-                    this.tracePoly(playerVerts);
-                    this.stroke();
+                    //this.tracePoly(playerVerts);
+                    //this.fillStyle = "white";
+                    //this.fill();
+                    //this.tracePoly(playerVerts);
+                    this.drawImage(goat, drawOffset.x, drawOffset.y);
+                    //this.stroke();
                     this.restore();
                 } else {
                     this.save();
@@ -863,7 +871,19 @@ var asteroids = (function() {
                 this.fillStyle = oldColor;
             };
 
-            this.ctx.drawFlames = function(flame) {
+            function translateCoordsForGoatButt(flame) {
+                function translate(xyArr) {
+                    return [xyArr[0] - 43, xyArr[1] + 28];
+                }
+
+                return {
+                    r: flame.r.map(translate),
+                    y: flame.y.map(translate)
+                };
+            }
+
+            this.ctx.drawFlames = function (flame) {
+                flame = translateCoordsForGoatButt(flame);
                 if ( THEPLAYER ) return;
 
                 this.save();
