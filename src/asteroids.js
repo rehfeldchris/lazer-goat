@@ -1,6 +1,9 @@
 // See license: https://github.com/erkie/erkie.github.com/blob/master/README
 
 var asteroids = (function() {
+    // If you rename this file, you need to update this. It's used for detecting the current url, so that
+    // it can make relative file paths.
+    var nameOfThisFile = "asteroids.js";
 
     // Get the url of wherever this script was loaded from
     var urlPath = (function getUrlPathOfHostedScript() {
@@ -22,8 +25,9 @@ var asteroids = (function() {
                     callerIndex = Number(i) + 2;
                     break;
                 }
+
                 //Now parse the string for each section we want to return
-                pathParts = stackLines[callerIndex].match(/(((https?:\/\/[^\/]+)\/(.*)\/)asteroids\.js)/i);
+                pathParts = stackLines[callerIndex].match(new RegExp("(((https?://[^/]+)/(.*)/)" + nameOfThisFile.replace(".", "\\.") + ")", "i"));
             }
 
             this.fullPath = function() {
@@ -92,7 +96,16 @@ var asteroids = (function() {
         });
     }
 
+    function addGoatIco() {
+        var link = document.createElement("link");
+        link.setAttribute("rel", "icon");
+        link.setAttribute("type", "images/x-icon");
+        link.setAttribute("href", urlPath + "goat.ico");
+        document.getElementsByTagName("head")[0].appendChild(link);
+    }
+
     function run() {
+        addGoatIco();
         function Asteroids() {
             if ( ! window.ASTEROIDS )
                 window.ASTEROIDS = {
