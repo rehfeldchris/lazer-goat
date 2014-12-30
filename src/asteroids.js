@@ -2,6 +2,95 @@
 
 var asteroids = (function() {
 
+    // Get the url of wherever this script was loaded from
+    var urlPath = (function getUrlPathOfHostedScript() {
+        // Idea from http://stackoverflow.com/a/22165218/249538
+        function ScriptPath() {
+            var scriptPath = '', pathParts;
+            try {
+                throw new Error();
+            } catch(e) {
+                //Split the stack trace into each line
+                var stackLines = e.stack.split('\n');
+                var callerIndex = 0;
+                //Now walk though each line until we find a path reference
+                for(var i in stackLines){
+                    if(!stackLines[i].match(/http[s]?:\/\//)) continue;
+                    //We skipped all the lines with out an http so we now have a script reference
+                    //This one is the class constructor, the next is the getScriptPath() call
+                    //The one after that is the user code requesting the path info (so offset by 2)
+                    callerIndex = Number(i) + 2;
+                    break;
+                }
+                //Now parse the string for each section we want to return
+                pathParts = stackLines[callerIndex].match(/(((https?:\/\/[^\/]+)\/(.*)\/)asteroids\.js)/i);
+            }
+
+            this.fullPath = function() {
+                return pathParts[2];
+            };
+
+        }
+
+        return (new ScriptPath()).fullPath();
+    })();
+
+    // Taken from:
+    // http://www.quirksmode.org/blog/archives/2005/10/_and_the_winner_1.html
+    function addEvent( obj, type, fn ) {
+        if (obj.addEventListener)
+            obj.addEventListener( type, fn, false );
+        else if (obj.attachEvent) {
+            obj["e"+type+fn] = fn;
+            obj[type+fn] = function() { obj["e"+type+fn]( window.event ); };
+            obj.attachEvent( "on"+type, obj[type+fn] );
+        }
+    }
+
+    function removeEvent( obj, type, fn ) {
+        if (obj.removeEventListener)
+            obj.removeEventListener( type, fn, false );
+        else if (obj.detachEvent) {
+            obj.detachEvent( "on"+type, obj[type+fn] );
+            obj[type+fn] = null;
+            obj["e"+type+fn] = null;
+        }
+    }
+
+    // Allows you to activate the game by pressing ctrl + alt + shift + g
+    function installGameActivationKeyListeners() {
+        var ctrlDown   = false,
+            altDown    = false,
+            shiftDown  = false,
+            keyCodes   = {ctrl: 17, alt: 18, shift: 16, g: 71};
+
+        addEvent(window, "keydown", function(e) {
+            if (e.keyCode === keyCodes.ctrl) {
+                ctrlDown = true;
+            }
+            if (e.keyCode === keyCodes.alt) {
+                altDown = true;
+            }
+            if (e.keyCode === keyCodes.shift) {
+                shiftDown = true;
+            }
+            if (ctrlDown && altDown && shiftDown && e.keyCode === keyCodes.g) {
+                run();
+            }
+        });
+
+        addEvent(window, "keyup", function(e) {
+            if (e.keyCode === keyCodes.ctrl) {
+                ctrlDown = false;
+            }
+            if (e.keyCode === keyCodes.alt) {
+                altDown = false;
+            }
+            if (e.keyCode === keyCodes.shift) {
+                shiftDown = false;
+            }
+        });
+    }
 
     function run() {
         function Asteroids() {
@@ -366,28 +455,6 @@ var asteroids = (function() {
                     el = el.offsetParent;
                 } while (el);
                 return {x: left, y: top, width: element.offsetWidth || 10, height: element.offsetHeight || 10};
-            }
-
-            // Taken from:
-            // http://www.quirksmode.org/blog/archives/2005/10/_and_the_winner_1.html
-            function addEvent( obj, type, fn ) {
-                if (obj.addEventListener)
-                    obj.addEventListener( type, fn, false );
-                else if (obj.attachEvent) {
-                    obj["e"+type+fn] = fn;
-                    obj[type+fn] = function() { obj["e"+type+fn]( window.event ); };
-                    obj.attachEvent( "on"+type, obj[type+fn] );
-                }
-            }
-
-            function removeEvent( obj, type, fn ) {
-                if (obj.removeEventListener)
-                    obj.removeEventListener( type, fn, false );
-                else if (obj.detachEvent) {
-                    obj.detachEvent( "on"+type, obj[type+fn] );
-                    obj[type+fn] = null;
-                    obj["e"+type+fn] = null;
-                }
             }
 
             function arrayRemove(array, from, to) {
@@ -1075,7 +1142,8 @@ var asteroids = (function() {
 
 
     return {
-        run: run
+        run: run,
+        installGameActivationKeyListeners : installGameActivationKeyListeners
     };
 
 })();
