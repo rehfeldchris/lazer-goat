@@ -735,29 +735,6 @@
             this.highscoreLink.innerHTML = "Submit highscore";
             this.navigation.appendChild(this.highscoreLink);
 
-            this.appstore = document.createElement('div');
-            with ( this.appstore.style ) {
-                position = 'fixed';
-                top = '10px';
-                right = '10px';
-                zIndex = '9999999';
-            }
-            this.appstore.className = 'ASTEROIDSYEAH';
-            this.appstore.innerHTML = '<a class="ASTEROIDSYEAH" target="_blank" href="http://itunes.apple.com/us/app/kick-ass-destroy-the-web/id436623109?mt=8&ls=1"><img src="http://erkie.github.com/appstore.png" class="ASTEROIDSYEAH" style="border: none" alt="Get the mobile version" /></a>';
-            this.appstore.getElementsByTagName('a')[0].onclick = function() {
-                this.parentNode.removeChild(this);
-            }
-            document.body.appendChild(this.appstore);
-
-            // fb like box
-            this.fbLike = document.createElement('div');
-            this.fbLike.innerHTML = '<iframe src="http://www.facebook.com/plugins/likebox.php?href=http%3A%2F%2Fwww.facebook.com%2Fpages%2FKick-Ass-Destroy-the-web%2F168200253236727&amp;width=292&amp;colorscheme=light&amp;show_faces=false&amp;stream=false&amp;header=false&amp;height=62" scrolling="no" frameborder="0" style="border:none; overflow:hidden; width:300px; height:70px;" allowTransparency="true"></iframe>';
-            this.navigation.appendChild(this.fbLike);
-
-            // Don't show appstore on frontpage, because they are already present
-            if ( document.location.href === 'http://erkie.github.com/' ) {
-                this.appstore.style.display = "none";
-            }
 
             this.highscoreLink.onclick = function() {
                 if ( ! that.highscores ) {
@@ -1219,19 +1196,10 @@
                     window.ASTEROIDSPLAYERS[window.ASTEROIDSPLAYERS.length] = new Asteroids();
             }
         };
-        script.src = "http://erkie.github.com/excanvas.js";
+        script.src = "http://explorercanvas.googlecode.com/svn/trunk/excanvas.js";
         document.getElementsByTagName('head')[0].appendChild(script);
     }
     else window.ASTEROIDSPLAYERS[window.ASTEROIDSPLAYERS.length] = new Asteroids();
 
-    var trackingFrame = document.createElement('iframe');
-    trackingFrame.src = 'http://erkie.github.com/tracking.html';
-    trackingFrame.frameborder = '0';
-    trackingFrame.style.position = 'absolute';
-    trackingFrame.style.top = "-1000px";
-    trackingFrame.style.height = "0px";
-    trackingFrame.style.width = "0px";
-
-    document.getElementsByTagName('body')[0].appendChild(trackingFrame);
 
 })();
