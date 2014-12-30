@@ -22,7 +22,7 @@
                 this.x = x;
                 this.y = y;
             }
-        };
+        }
 
         Vector.prototype = {
             cp: function() {
@@ -134,7 +134,7 @@
         function Line(p1, p2) {
             this.p1 = p1;
             this.p2 = p2;
-        };
+        }
 
         Line.prototype = {
             shift: function(pos) {
@@ -181,7 +181,7 @@
 
         function Highscores() {
 
-        };
+        }
 
         Highscores.prototype = {
             build: function() {
@@ -375,7 +375,7 @@
                     }
                 }
             }
-        };
+        }
         updateEnemyIndex();
 
         // createFlames create the vectors for the flames of the ship
@@ -417,15 +417,15 @@
 
         function radians(deg) {
             return deg * 0.0174532925;
-        };
+        }
 
         function degrees(rad) {
             return rad * 57.2957795;
-        };
+        }
 
         function random(from, to) {
             return Math.floor(Math.random() * (to + 1) + from);
-        };
+        }
 
         /*
          Misc operations
@@ -435,7 +435,7 @@
             var table = {'up': 38, 'down': 40, 'left': 37, 'right': 39, 'esc': 27};
             if ( table[name] ) return table[name];
             return name.charCodeAt(0);
-        };
+        }
 
         function boundsCheck(vec) {
             if ( vec.x > w )
@@ -447,7 +447,7 @@
                 vec.y = 0;
             else if ( vec.y < 0 )
                 vec.y = h;
-        };
+        }
 
         function size(element) {
             var el = element, left = 0, top = 0;
@@ -457,7 +457,7 @@
                 el = el.offsetParent;
             } while (el);
             return {x: left, y: top, width: element.offsetWidth || 10, height: element.offsetHeight || 10};
-        };
+        }
 
         // Taken from:
         // http://www.quirksmode.org/blog/archives/2005/10/_and_the_winner_1.html
@@ -485,7 +485,7 @@
             var rest = array.slice((to || from) + 1 || array.length);
             array.length = from < 0 ? array.length + from : from;
             return array.push.apply(array, rest);
-        };
+        }
 
         function applyVisibility(vis) {
             for ( var i = 0, p; p = window.ASTEROIDSPLAYERS[i]; i++ ) {
@@ -510,7 +510,7 @@
             // show the canvas again, hopefully it didn't blink
             applyVisibility('visible');
             return element;
-        };
+        }
 
         function addParticles(startPos) {
             var time = new Date().getTime();
@@ -523,11 +523,11 @@
                     cameAlive: time
                 });
             }
-        };
+        }
 
         function setScore() {
             that.points.innerHTML = window.ASTEROIDS.enemiesKilled * 10;
-        };
+        }
 
         function hasOnlyTextualChildren(element) {
             if ( element.offsetLeft < -100 && element.offsetWidth > 0 && element.offsetHeight > 0 ) return false;
@@ -542,7 +542,7 @@
                 ) return false;
             }
             return true;
-        };
+        }
 
         function indexOf(arr, item, from){
             if ( arr.indexOf ) return arr.indexOf(item, from);
@@ -551,18 +551,18 @@
                 if (arr[i] === item) return i;
             }
             return -1;
-        };
+        }
 
         // taken from MooTools Core
         function addClass(element, className) {
             if ( element.className.indexOf(className) == -1)
                 element.className = (element.className + ' ' + className).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
-        };
+        }
 
         // taken from MooTools Core
         function removeClass(element, className) {
             element.className = element.className.replace(new RegExp('(^|\\s)' + className + '(?:\\s|$)'), '$1');
-        };
+        }
 
         function addStylesheet(selector, rules) {
             var stylesheet = document.createElement('style');
@@ -575,14 +575,14 @@
                 stylesheet.styleSheet.addRule(selector, rules);
             }
             document.getElementsByTagName("head")[0].appendChild(stylesheet);
-        };
+        }
 
         function removeStylesheet(name) {
             var stylesheet = document.getElementById(name);
             if ( stylesheet ) {
                 stylesheet.parentNode.removeChild(stylesheet);
             }
-        };
+        }
 
         /*
          == Setup ==
@@ -1174,7 +1174,7 @@
                 this.highscores.hide();
             this.gameContainer.parentNode.removeChild(this.gameContainer);
             this.appstore.parentNode.removeChild(this.appstore);
-        };
+        }
     }
 
     if ( ! window.ASTEROIDSPLAYERS )
