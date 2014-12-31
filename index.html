@@ -11,6 +11,7 @@
             border: 1px solid #ccc;
             background-color: #efefef;
         }
+
     </style>
     <script>
         // Make a bunch of randomly sized and spaced boxes for the goat to shoot.
@@ -24,7 +25,7 @@
 
             for (var i = 0; i < 200; i++) {
                 $("<div>").css({
-                    top: rand(0, h),
+                    top: rand(20, h),
                     left: rand(0, w),
                     width: rand(30, 100) + "px",
                     height: rand(30, 100) + "px"
@@ -34,9 +35,21 @@
         $(function() {
             LazerGoat.run();
         });
+        $(function() {
+            $.get("src/bookmarklet.js").then(function(jsText) {
+                $("#bookmarklet").attr("href", "javascript:" + encodeURI(jsText));
+                $("#notes").css("z-index", "100000");
+                $("#notes, body").removeClass("ASTEROIDSYEAH");
+            });
+        });
     </script>
 </head>
 <body>
+<div id="notes">
+    <p>It's much more fun to unleash the goat on a real webpage with structured elements. Try going to
+        one and invoke the <a id="bookmarklet" href="#">lazer-goat bookmarklet</a> (drag it to your bookmark bar). </p>
+</div>
+
 <div id="boxes">
 
 </div>
