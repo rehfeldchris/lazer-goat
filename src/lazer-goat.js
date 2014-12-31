@@ -712,6 +712,9 @@ var LazerGoat = (function() {
                 this.points.className = "ASTEROIDSYEAH";
                 this.navigation.appendChild(this.points);
 
+                var instructions = document.createElement('div');
+                instructions.innerHTML = "<hr>To move: arrow keys or wasd.<br>To Shoot: spacebar.";
+                this.navigation.appendChild(instructions);
 
             } else {
                 this.navigation = document.getElementById('ASTEROIDS-NAVIGATION');
