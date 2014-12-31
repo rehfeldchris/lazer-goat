@@ -22,5 +22,8 @@ that you can just press <kbd>ctrl + alt + shift + g</kbd> to activate the goat:
  
     window.LazerGoat.run();
 
+ps - you can add more than 1 goat!
+
+
 #Credits
 I modified it, but it's heavily based on `asteroids.js` written by  [erkie](https://github.com/erkie).

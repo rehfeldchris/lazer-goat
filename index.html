@@ -33,7 +33,8 @@
             }
         });
         $(function() {
-            //LazerGoat.run();
+            LazerGoat.run();
+            LazerGoat.installGameActivationKeyListeners();
         });
         $(function() {
             $.ajax({url: "src/bookmarklet.js", dataType: "text"}).then(function(jsText) {
@@ -47,7 +48,7 @@
 <body>
 <div id="notes">
     <p>It's much more fun to unleash the goat on a real webpage with structured elements. Try going to
-        one and invoke the <a id="bookmarklet" href="#">lazer-goat bookmarklet</a> (drag it to your bookmark bar). </p>
+        one and invoke the <a id="bookmarklet" href="#">lazer-goat bookmarklet</a> (drag it to your bookmark bar). Add another goat by pressing <code>ctrl + alt + shift + g</code></p>
 </div>
 
 <div id="boxes">
