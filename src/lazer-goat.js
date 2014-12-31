@@ -551,15 +551,21 @@ var LazerGoat = (function() {
                 return -1;
             }
 
-            // taken from MooTools Core
-            function addClass(element, className) {
-                if ( element.className.indexOf(className) == -1)
-                    element.className = (element.className + ' ' + className).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+            function getClassNameAsString(element) {
+                // Sometimes element.className is an SvgAnimatedString, which doesnt have an indexOf method, so we unwrap the value.
+                return element.className instanceof SVGAnimatedString ? element.className.baseVal : element.className;
             }
 
-            // taken from MooTools Core
+            function addClass(element, className) {
+                var currentClassNameComponent = getClassNameAsString(element);
+
+                if (currentClassNameComponent.indexOf(className) == -1) {
+                    element.className = (currentClassNameComponent + ' ' + className).replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+                }
+            }
+
             function removeClass(element, className) {
-                element.className = element.className.replace(new RegExp('(^|\\s)' + className + '(?:\\s|$)'), '$1');
+                element.className = getClassNameAsString(element).replace(new RegExp('(^|\\s)' + className + '(?:\\s|$)'), '$1');
             }
 
             function addStylesheet(selector, rules) {
