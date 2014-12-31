@@ -33,10 +33,10 @@
             }
         });
         $(function() {
-            LazerGoat.run();
+            //LazerGoat.run();
         });
         $(function() {
-            $.get("src/bookmarklet.js").then(function(jsText) {
+            $.ajax({url: "src/bookmarklet.js", dataType: "text"}).then(function(jsText) {
                 $("#bookmarklet").attr("href", "javascript:" + encodeURI(jsText));
                 $("#notes").css("z-index", "100000");
                 $("#notes, body").removeClass("ASTEROIDSYEAH");
