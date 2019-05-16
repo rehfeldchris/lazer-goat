@@ -61,6 +61,11 @@ var LazerGoat = (function() {
         }
     }
 
+
+    function now() {
+        return new Date().getTime();
+    }
+
     // Allows you to activate the game by pressing ctrl + alt + shift + g
     function installGameActivationKeyListeners() {
         var ctrlDown   = false,
@@ -107,11 +112,19 @@ var LazerGoat = (function() {
     function run() {
         addGoatIco();
 
-        var goat = new Image();
-        goat.src = urlPath + "goat.png";
         var drawOffset = {x: -84, y: -24};
         var bwah = document.createElement("audio");
         bwah.src = urlPath + "bwah.mp3";
+        var bah = document.createElement("audio");
+        bah.src = urlPath + "bah.mp3";
+
+
+
+
+
+
+
+
 
 
 
@@ -330,6 +343,7 @@ var LazerGoat = (function() {
             var timeBetweenBlink = 250; // milliseconds between enemy blink
             var timeBetweenEnemyUpdate = isIE ? 10000 : 2000;
             var bulletRadius = 2;
+            var torpedoRadius = 8;
             var maxParticles = isIE ? 20 : 40;
             var maxBullets = isIE ? 10 : 20;
 
@@ -356,14 +370,19 @@ var LazerGoat = (function() {
             this.dir = new Vector(0, 1);
             this.keysPressed = {};
             this.firedAt = false;
+            this.powerChargeStartTime = 0;
+            this.powerIsCharging = false;
+            this.fireTorpedo = false;
+            this.torpedoPowerLevel = 0;// a float, 0 to 1
             this.updated = {
                 enemies: false, // if the enemy index has been updated since the user pressed B for Blink
-                flame: new Date().getTime(), // the time the flame was last updated
+                flame: now(), // the time the flame was last updated
                 blink: {time: 0, isActive: false}
             };
             this.scrollPos = new Vector(0, 0);
 
             this.bullets = [];
+            this.torpedos = [];
 
             // Enemies lay first in this.enemies, when they are shot they are moved to this.dying
             this.enemies = [];
@@ -372,6 +391,15 @@ var LazerGoat = (function() {
 
             // Particles are created when something is shot
             this.particles = [];
+
+            this.getPowerPercent = function() {
+                if (!that.powerIsCharging) {
+                    return 0;
+                }
+                // Holding the key for up to 3 seconds will continue to increase power.
+                var elapsedMillis = now() - that.powerChargeStartTime;
+                return Math.min(1, elapsedMillis / 3000);
+            };
 
             // things to shoot is everything textual and an element of type not specified in types AND not a navigation element (see further down)
             function updateEnemyIndex() {
@@ -452,9 +480,37 @@ var LazerGoat = (function() {
              */
 
             function code(name) {
-                var table = {'up': 38, 'down': 40, 'left': 37, 'right': 39, 'esc': 27};
+                var table = {'up': 38, 'down': 40, 'left': 37, 'right': 39, 'esc': 27, 'enter': 13};
                 if ( table[name] ) return table[name];
                 return name.charCodeAt(0);
+            }
+
+            function atLeastOneKeyActivated(event, keyCodes) {
+                var keyCode = event.keyCode || event.which;
+                return keyCodes.some(function(kc) {
+                    return keyCode === code(kc);
+                });
+            }
+
+
+            function drawReddenedGoatToCanvas(originalImageData, newImageData, ctx, redShiftFactor) {
+
+                for (var i = 0; i < originalImageData.data.length; i += 4) {
+                    var red = originalImageData.data[i+0];
+                    var green = originalImageData.data[i+1];
+                    var blue = originalImageData.data[i+2];
+                    var alpha = originalImageData.data[i+3];
+
+                    // skip transparent/semiTransparent pixels
+                    if(alpha < 230){continue;}
+
+                    // change white pixels to the new color
+                    newImageData.data[i+0] = red;
+                    newImageData.data[i+1] = green - redShiftFactor;
+                    newImageData.data[i+2] = blue - redShiftFactor;
+                }
+
+                ctx.putImageData(newImageData, 0, 0);
             }
 
             function boundsCheck(vec) {
@@ -510,8 +566,42 @@ var LazerGoat = (function() {
                 return element;
             }
 
+
+            function shouldRemoveElement(element) {
+                return element && element.tagName &&
+                indexOf(ignoredTypes, element.tagName.toUpperCase()) === -1 &&
+                hasOnlyTextualChildren(element) && element.className !== "ASTEROIDSYEAH";
+            }
+
+            function getAllElementsNearPoint(originX, originY, searchDistancePx) {
+                // hide canvas so it isn't picked up
+                applyVisibility('hidden');
+
+                var elements = [];
+                var stepPx = 10;
+
+
+                for (var x = originX - searchDistancePx; x < originX + searchDistancePx; x += stepPx) {
+                    for (var y = originY - searchDistancePx; y < originY + searchDistancePx; y += stepPx) {
+                        var element = document.elementFromPoint(x, y);
+                        if (element) {
+                            if (element.nodeType === 3) {
+                                element = element.parentNode;
+                            }
+                            if (shouldRemoveElement(element)) {
+                                elements.push(element);
+                            }
+                        }
+                    }
+                }
+
+                // show the canvas again, hopefully it didn't blink
+                applyVisibility('visible');
+                return elements;
+            }
+
             function addParticles(startPos) {
-                var time = new Date().getTime();
+                var time = now();
                 var amount = maxParticles;
                 for ( var i = 0; i < amount; i++ ) {
                     that.particles.push({
@@ -609,6 +699,26 @@ var LazerGoat = (function() {
                 right = "0px";
                 zIndex = "10000";
             }
+
+
+            /** @type {ImageData} */
+            this.origGoatImageData = null;
+            /** @type {ImageData} */
+            this.newGoatImageData = null;
+            this.goatCanvas = document.createElement('canvas');
+            this.goatCanvasCtx = this.goatCanvas.getContext('2d');
+            var goatImg = new Image();
+            goatImg.onload = function () {
+                that.goatCanvasCtx.drawImage(goatImg, 0, 0);
+                that.origGoatImageData = that.getGoatImageData();
+                that.newGoatImageData = that.getGoatImageData();
+            };
+            goatImg.src = urlPath + "goat.png";
+
+            this.getGoatImageData = function() {
+                return that.goatCanvasCtx.getImageData(0, 0, goatImg.width, goatImg.height);
+            };
+
 
             // Is IE
             if ( typeof G_vmlCanvasManager != 'undefined' ) {
@@ -741,19 +851,26 @@ var LazerGoat = (function() {
              == Events ==
              */
             var forwardKeyIsDown = false;
+            var tKeyIsDown = false;
             var eventKeydown = function(event) {
                 event = event || window.event;
-                if ( event.ctrlKey || event.shiftKey )
-                    return;
                 that.keysPressed[event.keyCode] = true;
 
-                switch ( event.keyCode ) {
-                    case code(' '):
-                        that.firedAt = 1;
-                        break;
+                if (atLeastOneKeyActivated(event, [' ', 'enter'])) {
+                    that.firedAt = 1;
                 }
 
-                if (indexOf([code('up'),code('W')], event.keyCode) != -1) {
+                if (atLeastOneKeyActivated(event, ['T']) && !tKeyIsDown) {
+                    tKeyIsDown = true;
+                    that.powerChargeStartTime = now();
+                    that.powerIsCharging = true;
+                }
+
+                if (atLeastOneKeyActivated(event, ['enter'])) {
+                    bah.play();
+                }
+
+                if (atLeastOneKeyActivated(event, ['up', 'W'])) {
                     // holding the keydown triggers the event many times, but we only want to use the first event per key press.
                     // so, we keep track of the button state.
                     if (!forwardKeyIsDown) {
@@ -763,10 +880,7 @@ var LazerGoat = (function() {
                 }
 
                 // check here so we can stop propagation appropriately
-                if ( indexOf([code('up'), code('down'), code('right'), code('left'), code(' '), code('B'), code('W'), code('A'), code('S'), code('D')], event.keyCode) != -1 ) {
-                    if ( event.ctrlKey || event.shiftKey )
-                        return;
-
+                if (atLeastOneKeyActivated(event, ['up', 'down', 'right', 'left', ' ', 'B', 'W', 'A', 'S', 'D'])) {
                     if ( event.preventDefault )
                         event.preventDefault();
                     if ( event.stopPropagation)
@@ -780,10 +894,7 @@ var LazerGoat = (function() {
 
             var eventKeypress = function(event) {
                 event = event || window.event;
-                if ( indexOf([code('up'), code('down'), code('right'), code('left'), code(' '), code('W'), code('A'), code('S'), code('D')], event.keyCode || event.which) != -1 ) {
-                    if ( event.ctrlKey || event.shiftKey )
-                        return;
-
+                if (atLeastOneKeyActivated(event, ['up', 'down', 'right', 'left', ' ', 'W', 'A', 'S', 'D'])) {
                     if ( event.preventDefault )
                         event.preventDefault();
                     if ( event.stopPropagation )
@@ -799,11 +910,20 @@ var LazerGoat = (function() {
                 event = event || window.event;
                 that.keysPressed[event.keyCode] = false;
 
-                if (indexOf([code('up'),code('W')], event.keyCode) != -1) {
+                if (atLeastOneKeyActivated(event, ['up', 'W'])) {
                     forwardKeyIsDown = false;
                 }
 
-                if ( indexOf([code('up'), code('down'), code('right'), code('left'), code(' '), code('B'), code('W'), code('A'), code('S'), code('D')], event.keyCode) != -1 ) {
+                if (atLeastOneKeyActivated(event, ['T'])) {
+                    tKeyIsDown = false;
+                    if (that.getPowerPercent() > 0.1) {
+                        that.fireTorpedo = true;
+                        that.torpedoPowerLevel = that.getPowerPercent();
+                    }
+                    that.powerIsCharging = false;
+                }
+
+                if (atLeastOneKeyActivated(event, ['up', 'down', 'right', 'left', ' ', 'B', 'W', 'A', 'S', 'D'])) {
                     if ( event.preventDefault )
                         event.preventDefault();
                     if ( event.stopPropagation )
@@ -857,7 +977,9 @@ var LazerGoat = (function() {
                     //this.fillStyle = "white";
                     //this.fill();
                     //this.tracePoly(playerVerts);
-                    this.drawImage(goat, drawOffset.x, drawOffset.y);
+                    var redShiftFactor = Math.floor(that.getPowerPercent() * 255);
+                    drawReddenedGoatToCanvas(that.origGoatImageData, that.newGoatImageData, that.goatCanvasCtx, redShiftFactor);
+                    this.drawImage(that.goatCanvas, drawOffset.x, drawOffset.y);
                     //this.stroke();
                     this.restore();
                 } else {
@@ -875,6 +997,16 @@ var LazerGoat = (function() {
                 for ( var i = 0; i < bullets.length; i++ ) {
                     this.beginPath();
                     this.arc(bullets[i].pos.x, bullets[i].pos.y, bulletRadius, 0, PI_SQ, true);
+                    this.closePath();
+                    this.fill();
+                }
+            };
+
+            this.ctx.drawTorpedos = function(torpedos) {
+                for ( var i = 0; i < torpedos.length; i++ ) {
+                    this.beginPath();
+                    var radius = that.torpedoPowerLevel * 20;
+                    this.arc(torpedos[i].pos.x, torpedos[i].pos.y, radius, 0, PI_SQ, true);
                     this.closePath();
                     this.fill();
                 }
@@ -941,14 +1073,20 @@ var LazerGoat = (function() {
             addClass(document.body, 'ASTEROIDSYEAH');
 
             var isRunning = true;
-            var lastUpdate = new Date().getTime();
+            var lastUpdate = now();
             var forceChange = false;
 
             this.update = function() {
+
+                // Need to wait for image to load.
+                if (!this.newGoatImageData) {
+                    return;
+                }
+
                 // ==
                 // logic
                 // ==
-                var nowTime = new Date().getTime();
+                var nowTime = now();
                 var tDelta = (nowTime - lastUpdate) / 1000;
                 lastUpdate = nowTime;
 
@@ -991,9 +1129,29 @@ var LazerGoat = (function() {
                         'dir': this.dir.cp(),
                         'pos': this.pos.cp(),
                         'startVel': this.vel.cp(),
-                        'cameAlive': nowTime
+                        'cameAlive': nowTime,
+                        'isTorpedo': false
                     });
 
+                    this.firedAt = nowTime;
+
+                    if ( this.bullets.length > maxBullets ) {
+                        this.bullets.pop();
+                    }
+                }
+
+                // launch torpedo
+                if (that.fireTorpedo) {
+                    that.fireTorpedo = false;
+                    this.bullets.unshift({
+                        'dir': this.dir.cp(),
+                        'pos': this.pos.cp(),
+                        'startVel': this.vel.cp(),
+                        'cameAlive': nowTime,
+                        'isTorpedo': true
+                    });
+
+                    bah.play();
                     this.firedAt = nowTime;
 
                     if ( this.bullets.length > maxBullets ) {
@@ -1052,30 +1210,79 @@ var LazerGoat = (function() {
 
                 // update positions of bullets
                 for ( var i = this.bullets.length - 1; i >= 0; i-- ) {
+                    var bullet = this.bullets[i];
+                    // Skip torpedos.
+                    if (bullet.isTorpedo) {
+                        continue;
+                    }
+
                     // bullets should only live for 2 seconds
-                    if ( nowTime - this.bullets[i].cameAlive > 2000 ) {
+                    if ( nowTime - bullet.cameAlive > 2000 ) {
                         this.bullets.splice(i, 1);
                         forceChange = true;
                         continue;
                     }
 
-                    var bulletVel = this.bullets[i].dir.setLengthNew(bulletSpeed * tDelta).add(this.bullets[i].startVel.mulNew(tDelta));
+                    var bulletVel = bullet.dir.setLengthNew(bulletSpeed * tDelta).add(bullet.startVel.mulNew(tDelta));
 
-                    this.bullets[i].pos.add(bulletVel);
-                    boundsCheck(this.bullets[i].pos);
+                    bullet.pos.add(bulletVel);
+                    boundsCheck(bullet.pos);
 
                     // check collisions
-                    var murdered = getElementFromPoint(this.bullets[i].pos.x, this.bullets[i].pos.y);
+                    var murdered = getElementFromPoint(bullet.pos.x, bullet.pos.y);
                     if (
                         murdered && murdered.tagName &&
                         indexOf(ignoredTypes, murdered.tagName.toUpperCase()) == -1 &&
                         hasOnlyTextualChildren(murdered) && murdered.className != "ASTEROIDSYEAH"
                     ) {
                         didKill = true;
-                        addParticles(this.bullets[i].pos);
+                        addParticles(bullet.pos);
                         this.dying.push(murdered);
 
                         this.bullets.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                // update positions of torpedos
+                for ( var i = this.bullets.length - 1; i >= 0; i-- ) {
+                    var bullet = this.bullets[i];
+                    // Skip non-torpedos.
+                    if (!bullet.isTorpedo) {
+                        continue;
+                    }
+
+                    // bullets should only live for 2 seconds
+                    if ( nowTime - bullet.cameAlive > 2000 ) {
+                        this.bullets.splice(i, 1);
+                        forceChange = true;
+                        continue;
+                    }
+
+                    var bulletVel = bullet.dir.setLengthNew(bulletSpeed * tDelta).add(bullet.startVel.mulNew(tDelta));
+
+                    bullet.pos.add(bulletVel);
+                    boundsCheck(bullet.pos);
+
+                    // check collisions
+                    var murdered = getElementFromPoint(bullet.pos.x, bullet.pos.y);
+                    if (shouldRemoveElement(murdered)) {
+                        didKill = true;
+                        addParticles(bullet.pos);
+                        this.dying.push(murdered);
+
+                        this.bullets.splice(i, 1);
+
+                        // Now that we know we hit something, lets blow up other nearby stuff.
+                        var searchDistancePx = this.torpedoPowerLevel * 200;
+                        var nearbyElements = getAllElementsNearPoint(bullet.pos.x, bullet.pos.y, searchDistancePx);
+
+                        for (var nei = 0; nei < nearbyElements.length; nei++) {
+                            var ele = nearbyElements[nei];
+                            this.dying.push(ele);
+                            addParticles(new Vector(ele.offsetLeft, ele.offsetTop));
+                        }
+
                         continue;
                     }
                 }
@@ -1123,7 +1330,7 @@ var LazerGoat = (function() {
                 }
 
                 // clear
-                if ( forceChange || this.bullets.length != 0 || this.particles.length != 0 || ! this.pos.is(this.lastPos) || this.vel.len() > 0 ) {
+                if ( forceChange || this.bullets.length != 0 || this.particles.length != 0 || ! this.pos.is(this.lastPos) || this.vel.len() > 0 || that.powerIsCharging ) {
                     this.ctx.clear();
 
                     // draw player
@@ -1135,7 +1342,12 @@ var LazerGoat = (function() {
 
                     // draw bullets
                     if (this.bullets.length) {
-                        this.ctx.drawBullets(this.bullets);
+                        this.ctx.drawBullets(this.bullets.filter(isNotTorpedo));
+                    }
+
+                    // draw torpedos
+                    if (this.bullets.length) {
+                        this.ctx.drawTorpedos(this.bullets.filter(isTorpedo));
                     }
 
                     // draw particles
@@ -1146,6 +1358,14 @@ var LazerGoat = (function() {
                 this.lastPos = this.pos;
                 forceChange = false;
             };
+
+            function isNotTorpedo(bullet) {
+                return !isTorpedo(bullet);
+            }
+
+            function isTorpedo(bullet) {
+                return bullet.isTorpedo;
+            }
 
             // Start timer
             var updateFunc = function() {
