@@ -823,7 +823,7 @@ var LazerGoat = (function() {
                 this.navigation.appendChild(this.points);
 
                 var instructions = document.createElement('div');
-                instructions.innerHTML = "<hr>To move: arrow keys or wasd.<br>To Shoot: spacebar.";
+                instructions.innerHTML = "<hr>To move: arrow keys or wasd.<br>To Shoot: spacebar.<br>To fire Torpedo: Hold T to build power.";
                 this.navigation.appendChild(instructions);
 
             } else {
