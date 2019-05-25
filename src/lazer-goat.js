@@ -129,7 +129,7 @@ var LazerGoat = (function() {
     function run() {
         addGoatIco();
 
-        var drawOffset = {x: -84, y: -24};
+        var drawOffset = {x: -84, y: -22};
         var bwah = document.createElement("audio");
         bwah.src = urlPath + "bwah.mp3";
         var bah = document.createElement("audio");
@@ -279,6 +279,32 @@ var LazerGoat = (function() {
                 this.p2 = p2;
             }
 
+            Line.fromPointLengthDirection = function(startPoint, directionVector, lineLength) {
+                let endPos = startPoint.addNew(directionVector.mulNew(lineLength));
+                return new Line(startPoint.cp(), endPos);
+            };
+
+            Line.rectTo4Sides = function(rect) {
+                return {
+                    top: new Line(
+                        new Vector(rect.left, rect.top),
+                        new Vector(rect.right, rect.top)
+                    ),
+                    bottom: new Line(
+                        new Vector(rect.left, rect.bottom),
+                        new Vector(rect.right, rect.bottom)
+                    ),
+                    left: new Line(
+                        new Vector(rect.left, rect.top),
+                        new Vector(rect.left, rect.bottom)
+                    ),
+                    right: new Line(
+                        new Vector(rect.right, rect.top),
+                        new Vector(rect.right, rect.bottom)
+                    ),
+                };
+            };
+
             Line.prototype = {
                 shift: function(pos) {
                     this.p1.add(pos);
@@ -319,7 +345,80 @@ var LazerGoat = (function() {
                     var ub = numerator2 / denom;
 
                     return (ua >= 0.0 && ua <= 1.0 && ub >= 0.0 && ub <= 1.0);
+                },
+
+                /**
+                 *
+                 * @param {Line} line2
+                 * @return {Vector}
+                 */
+                getLineIntersectionPoint: function(line2) {
+                    const line1 = this;
+                    const A = line1.p1;
+                    const B = line1.p2;
+                    const C = line2.p1;
+                    const D = line2.p2;
+
+                    // Line AB represented as a1x + b1y = c1
+                    const a1 = B.y - A.y;
+                    const b1 = A.x - B.x;
+                    const c1 = a1*(A.x) + b1*(A.y);
+
+                    // Line CD represented as a2x + b2y = c2
+                    const a2 = D.y - C.y;
+                    const b2 = C.x - D.x;
+                    const c2 = a2*(C.x)+ b2*(C.y);
+
+                    const determinant = a1*b2 - a2*b1;
+
+                    if (determinant === 0)
+                    {
+                        // The lines are parallel. This is simplified
+                        // by returning a pair of FLT_MAX
+                        return new Vector(Number.MAX_VALUE, Number.MAX_VALUE);
+                    }
+                    else
+                    {
+                        const x = (b2*c1 - b1*c2)/determinant;
+                        const y = (a1*c2 - a2*c1)/determinant;
+                        return new Vector(x, y);
+                    }
+
+                },
+
+                /**
+                 *
+                 * @param {DOMRect} rect
+                 */
+                getClosestIntersectionPoint: function(rect) {
+                    // Make 4 lines from the rect.
+                    const sides = Line.rectTo4Sides(rect);
+                    let minDistance = Number.MAX_SAFE_INTEGER;
+                    let closestPoint = null;
+
+                    [sides.top, sides.bottom, sides.left, sides.right].forEach(line => {
+                        let intersectionPoint = this.getLineIntersectionPoint(sides.top);
+                        if (intersectionPoint) {
+                            // Make a line to the intersection point, so we can then measure how long that line is.
+                            const lineToIntersectionPoint = new Line(this.p1.cp(), intersectionPoint);
+                            const lineLength = lineToIntersectionPoint.length();
+                            if (lineLength < minDistance) {
+                               minDistance = lineLength;
+                               closestPoint = intersectionPoint;
+                            }
+                        }
+                    });
+
+                    return closestPoint;
+                },
+
+                length: function() {
+                    return Math.sqrt(
+                        Math.pow(this.p2.x - this.p1.x, 2),
+                        Math.pow(this.p2.y - this.p1.y, 2),
+                    );
                 }
+
             };
 
             /*
@@ -559,104 +658,112 @@ var LazerGoat = (function() {
                 return array.push.apply(array, rest);
             }
 
-            function applyVisibility(vis) {
+            // We need to hide the canvas elements, otherwise our calls to the document.getElementFromPoint() method
+            // will pick up the canvas, which we dont want.
+            function hideCanvasElements(setVisibilityToHidden) {
                 for ( var i = 0, p; p = window.ASTEROIDSPLAYERS[i]; i++ ) {
-                    p.gameContainer.style.visibility = vis;
+                    p.gameContainer.style.visibility = setVisibilityToHidden ? 'hidden' : 'visible';
                 }
             }
 
-            function getElementFromPoint(x, y) {
+            function getElementFromPoint(pos) {
                 // hide canvas so it isn't picked up
-                applyVisibility('hidden');
+                hideCanvasElements(true);
 
-                var element = document.elementFromPoint(x, y);
+                var element = document.elementFromPoint(pos.x, pos.y);
 
-                if ( ! element ) {
-                    applyVisibility('visible');
+                if (!element) {
+                    hideCanvasElements(false);
                     return false;
                 }
 
-                if ( element.nodeType === 3 )
+                if (element.nodeType === 3)
                     element = element.parentNode;
 
                 // show the canvas again, hopefully it didn't blink
-                applyVisibility('visible');
+                hideCanvasElements(false);
                 return element;
             }
 
-            function getFirstElementWithinCircle(x, y, radius) {
-                // hide canvas so it isn't picked up
-                applyVisibility('hidden');
+            function getFirstElementWithinCircle(pos, maxRadius) {
+                const elems = getMostElementsWithinCircle(pos, maxRadius, 1);
+                const element = elems.values().next();
+                return element ? element.value : null;
+            }
 
-                // First, we will try the center of the circle.
-                var element = eleFromPoint(x, y);
-                if (shouldRemoveElement(element)) {
-                    applyVisibility('visible');
-                    return element;
+            function getMostElementsWithinCircle(pos, maxRadius, maxElements = 999) {
+                // hide canvas so it isn't picked up
+                hideCanvasElements(true);
+
+                const elements = new Set();
+
+                // Start by checking origin.
+                let element = eleFromPoint(pos);
+                if (elementCanBeDestroyed(element)) {
+                    elements.add(element);
                 }
 
-                // Next, we will try N points, each radius px away from it, simulating a circle.
-                for (var deg = 0; deg < 360; deg += 45) {
-                    var newX = x + (radius * Math.cos(degreesToRadians(deg)));
-                    var newY = y + (radius * Math.sin(degreesToRadians(deg)));
-                    var element = eleFromPoint(newX, newY);
-                    if (shouldRemoveElement(element)) {
-                        applyVisibility('visible');
-                        return element;
+                // We want to always increase by at least 1 px, but for big radiuses, we will make up to 10 gradual steps.
+                const increasingRadiusStepSize = Math.max(1, maxRadius / 10);
+
+                // Next, we will check a few circles, gradually making each circle farther and farther away from the origin.
+                for (let rad = 0; rad <= maxRadius && elements.size < maxElements; rad += increasingRadiusStepSize) {
+
+                    // We will try N points, each radius px away from it, simulating a circle.
+                    for (let deg = 0; deg < 360; deg += 10) {
+                        let newPos = new Vector(
+                            pos.x + (maxRadius * Math.cos(degreesToRadians(deg))),
+                            pos.y + (maxRadius * Math.sin(degreesToRadians(deg)))
+                        );
+                        element = eleFromPoint(newPos);
+                        if (elementCanBeDestroyed(element)) {
+                            elements.add(element);
+                        }
                     }
+
                 }
 
                 // show the canvas again, hopefully it didn't blink
-                applyVisibility('visible');
-                return false;
+                hideCanvasElements(false);
+                return elements;
+            }
+
+            function getFirstElementToIntersectLine(pos, dir, maxLengthPx = 800) {
+                hideCanvasElements(true);
+                let element;
+                for (let lenPx = 0; lenPx < maxLengthPx; lenPx += 10) {
+                    let line = Line.fromPointLengthDirection(pos, dir, lenPx);
+                    let elem = eleFromPoint(line.p2);
+                    if (elementCanBeDestroyed(elem)) {
+                        element = elem;
+                        break;
+                    }
+                }
+                hideCanvasElements(false);
+                return element;
             }
 
             function degreesToRadians(deg) {
                 return (Math.PI * deg) / 180;
             }
 
-            function eleFromPoint(x, y) {
-                var element = document.elementFromPoint(x, y);
+            function eleFromPoint(pos) {
+                const element = document.elementFromPoint(pos.x, pos.y);
                 return element && element.nodeType === 3 ? element.parentNode : element;
             }
 
-            function shouldRemoveElement(element) {
+            function elementCanBeDestroyed(element) {
                 return element && element.tagName &&
                 indexOf(ignoredTypes, element.tagName.toUpperCase()) === -1 &&
                 hasOnlyTextualChildren(element) && element.className !== "ASTEROIDSYEAH";
             }
 
-            function getAllElementsNearPoint(originX, originY, searchDistancePx) {
-                // hide canvas so it isn't picked up
-                applyVisibility('hidden');
-
-                var elements = [];
-                var stepPx = 10;
-
-
-                for (var x = originX - searchDistancePx; x < originX + searchDistancePx; x += stepPx) {
-                    for (var y = originY - searchDistancePx; y < originY + searchDistancePx; y += stepPx) {
-                        var element = document.elementFromPoint(x, y);
-                        if (element) {
-                            if (element.nodeType === 3) {
-                                element = element.parentNode;
-                            }
-                            if (shouldRemoveElement(element)) {
-                                elements.push(element);
-                            }
-                        }
-                    }
-                }
-
-                // show the canvas again, hopefully it didn't blink
-                applyVisibility('visible');
-                return elements;
-            }
-
-            function addParticles(startPos) {
-                var time = now();
-                var amount = maxParticles;
-                for ( var i = 0; i < amount; i++ ) {
+            function addParticles(startPos, isTorpedo = false) {
+                const time = now();
+                // If it's a torpedo, we want the explosion to be more impressive, so we will
+                // multiply the number of explosion particles.
+                const numParticles = isTorpedo ? maxParticles * 20 : maxParticles;
+                for ( let i = 0; i < numParticles; i++ ) {
                     that.particles.push({
                         // random direction
                         dir: (new Vector(Math.random() * 20 - 10, Math.random() * 20 - 10)).normalize(),
@@ -1017,6 +1124,15 @@ var LazerGoat = (function() {
                 this.fill();
             };
 
+            this.ctx.drawLaserLine = function(line) {
+                this.strokeStyle = '#ff5b00';
+                this.beginPath();
+                this.moveTo(line.p1.x, line.p1.y);
+                this.lineTo(line.p2.x, line.p2.y);
+                this.stroke();
+                this.closePath();
+            };
+
             this.ctx.tracePoly = function(verts) {
                 this.beginPath();
                 this.moveTo(verts[0][0], verts[0][1]);
@@ -1073,6 +1189,29 @@ var LazerGoat = (function() {
                     drawStar(torpedos[i].pos.x, torpedos[i].pos.y, 15, radius, radius/2, this);
                 }
             };
+
+            function drawLaserBeams(pos, dir, ctx) {
+                let element = getFirstElementToIntersectLine(pos, dir);
+                if (element) {
+                    // We make the line start a few px more towards the target, so it doesnt start behind the goats eyes.
+                    let lineStartPos = Line.fromPointLengthDirection(pos, dir, 15).p2;
+
+
+                    const rect = element.getBoundingClientRect();
+                    let x = (rect.left + rect.right) / 2;
+                    let y = (rect.top + rect.bottom) / 2;
+                    // A line from the current player pos, to the center of the rect.
+                    const playerToCenterOfRectLine = new Line(
+                        lineStartPos.cp(),
+                        new Vector(x, y)
+                    );
+
+                    const intersectionPoint = playerToCenterOfRectLine.getClosestIntersectionPoint(rect);
+                    const playerToBorderOfRectLine = new Line(lineStartPos, intersectionPoint);
+
+                    ctx.drawLaserLine(playerToBorderOfRectLine);
+                }
+            }
 
             function drawStar(cx, cy, spikes, outerRadius, innerRadius, ctx) {
                 var rot = Math.PI / 2 * 3;
@@ -1238,6 +1377,7 @@ var LazerGoat = (function() {
                         currentRadius: 1
                     });
 
+
                     this.firedAt = nowTime;
 
                     if ( this.bullets.length > maxBullets ) {
@@ -1314,6 +1454,12 @@ var LazerGoat = (function() {
                     this.pos.y = h;
                 }
 
+                // Disable lasers for now. The lines seem to point in odd directions sometimes, and dont
+                // always appear. I think I have a coordinate quadrant tracking problem, plus maybe a line color or
+                // ctx problem which causes the line to not always appear.
+                //drawLaserBeams(this.pos, this.dir, this.ctx);
+
+
                 // update positions of bullets
                 for ( var i = this.bullets.length - 1; i >= 0; i-- ) {
                     var bullet = this.bullets[i];
@@ -1335,7 +1481,7 @@ var LazerGoat = (function() {
                     boundsCheck(bullet.pos);
 
                     // check collisions
-                    var murdered = getElementFromPoint(bullet.pos.x, bullet.pos.y);
+                    var murdered = getElementFromPoint(bullet.pos);
                     if (
                         murdered && murdered.tagName &&
                         indexOf(ignoredTypes, murdered.tagName.toUpperCase()) == -1 &&
@@ -1370,7 +1516,7 @@ var LazerGoat = (function() {
                     var baseRadius = this.torpedoPowerLevel * 10;
                     var radius = baseRadius + (bigSmallPhase * baseRadius);
                     bullet.currentRadius = radius;
-                    console.log({age, bigSmallPhase, radius, baseRadius});
+                    // console.log({age, bigSmallPhase, radius, baseRadius});
 
                     var bulletVel = bullet.dir.setLengthNew(torpedoSpeed * tDelta).add(bullet.startVel.mulNew(tDelta));
 
@@ -1378,27 +1524,29 @@ var LazerGoat = (function() {
                     boundsCheck(bullet.pos);
 
                     // check collisions
-                    var murdered = getFirstElementWithinCircle(bullet.pos.x, bullet.pos.y, bullet.currentRadius);
-                    if (shouldRemoveElement(murdered)) {
+                    var murdered = getFirstElementWithinCircle(bullet.pos, bullet.currentRadius);
+                    if (elementCanBeDestroyed(murdered)) {
                         didKill = true;
-                        addParticles(bullet.pos);
+                        addParticles(bullet.pos, true);
                         this.dying.push(murdered);
 
                         this.bullets.splice(i, 1);
 
                         // Now that we know we hit something, lets blow up other nearby stuff.
                         var searchDistancePx = this.torpedoPowerLevel * 200;
-                        var nearbyElements = getAllElementsNearPoint(bullet.pos.x, bullet.pos.y, searchDistancePx);
+                        let nearbyElements = Array.from(getMostElementsWithinCircle(bullet.pos, searchDistancePx));
 
-                        for (var nei = 0; nei < nearbyElements.length; nei++) {
-                            var ele = nearbyElements[nei];
+                        nearbyElements.forEach(ele => {
                             this.dying.push(ele);
-                            addParticles(new Vector(ele.offsetLeft, ele.offsetTop));
-                        }
+                            addParticles(new Vector(ele.offsetLeft, ele.offsetTop), true);
+                        });
 
-                        continue;
                     }
+
+
                 }
+
+
 
                 if (this.dying.length) {
                     for ( var i = this.dying.length - 1; i >= 0; i-- ) {
