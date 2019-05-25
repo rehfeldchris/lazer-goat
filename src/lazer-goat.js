@@ -1070,7 +1070,7 @@ var LazerGoat = (function() {
             this.ctx.drawTorpedos = function(torpedos) {
                 for ( var i = 0; i < torpedos.length; i++ ) {
                     var radius = torpedos[i].currentRadius;
-                    drawStar(torpedos[i].pos.x, torpedos[i].pos.y, 15, radius, radius/3, this);
+                    drawStar(torpedos[i].pos.x, torpedos[i].pos.y, 15, radius, radius/2, this);
                 }
             };
 
@@ -1367,9 +1367,10 @@ var LazerGoat = (function() {
 
                     var age = now() - bullet.cameAlive;
                     var bigSmallPhase = Math.sin(age / 100);
-                    var baseRadius = this.torpedoPowerLevel * 20;
-                    var radius = baseRadius + (bigSmallPhase * 10);
+                    var baseRadius = this.torpedoPowerLevel * 10;
+                    var radius = baseRadius + (bigSmallPhase * baseRadius);
                     bullet.currentRadius = radius;
+                    console.log({age, bigSmallPhase, radius, baseRadius});
 
                     var bulletVel = bullet.dir.setLengthNew(torpedoSpeed * tDelta).add(bullet.startVel.mulNew(tDelta));
 
