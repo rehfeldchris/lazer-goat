@@ -25,5 +25,9 @@ that you can just press <kbd>ctrl + alt + shift + g</kbd> to activate the goat:
 ps - you can add more than 1 goat!
 
 
+# Build
+To build the source, run `build.sh`, and then use the files in the `dist/` dir.
+
+
 #Credits
 I modified it, but it's heavily based on `asteroids.js` written by  [erkie](https://github.com/erkie).

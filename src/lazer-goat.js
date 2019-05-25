@@ -61,6 +61,26 @@ var LazerGoat = (function() {
         }
     }
 
+    /**
+     * @param {string} htmlStr
+     * @return {DocumentFragment}
+     */
+    function htmlToElements(htmlStr) {
+        var template = document.createElement('template');
+        template.innerHTML = htmlStr;
+        return template.content;
+    }
+
+    /**
+     *
+     * @param {string} htmlStr
+     * @return {Element}
+     */
+    function htmlToElement(htmlStr) {
+        var frag = htmlToElements(htmlStr);
+        return frag.firstElementChild;
+    }
+
 
     function now() {
         return new Date().getTime();
@@ -102,10 +122,7 @@ var LazerGoat = (function() {
     }
 
     function addGoatIco() {
-        var link = document.createElement("link");
-        link.setAttribute("rel", "icon");
-        link.setAttribute("type", "images/x-icon");
-        link.setAttribute("href", urlPath + "goat.ico");
+        var link = htmlToElement('<link rel=icon type="images/x-icon" href="goat.ico">');
         document.getElementsByTagName("head")[0].appendChild(link);
     }
 
@@ -337,6 +354,7 @@ var LazerGoat = (function() {
             var maxSpeed	  = 600;
             var rotSpeed	  = 360; // one rotation per second
             var bulletSpeed	  = 700;
+            var torpedoSpeed  = 300;
             var particleSpeed = 400;
 
             var timeBetweenFire = 150; // how many milliseconds between shots
@@ -558,7 +576,7 @@ var LazerGoat = (function() {
                     return false;
                 }
 
-                if ( element.nodeType == 3 )
+                if ( element.nodeType === 3 )
                     element = element.parentNode;
 
                 // show the canvas again, hopefully it didn't blink
@@ -566,6 +584,41 @@ var LazerGoat = (function() {
                 return element;
             }
 
+            function getFirstElementWithinCircle(x, y, radius) {
+                // hide canvas so it isn't picked up
+                applyVisibility('hidden');
+
+                // First, we will try the center of the circle.
+                var element = eleFromPoint(x, y);
+                if (shouldRemoveElement(element)) {
+                    applyVisibility('visible');
+                    return element;
+                }
+
+                // Next, we will try N points, each radius px away from it, simulating a circle.
+                for (var deg = 0; deg < 360; deg += 45) {
+                    var newX = x + (radius * Math.cos(degreesToRadians(deg)));
+                    var newY = y + (radius * Math.sin(degreesToRadians(deg)));
+                    var element = eleFromPoint(newX, newY);
+                    if (shouldRemoveElement(element)) {
+                        applyVisibility('visible');
+                        return element;
+                    }
+                }
+
+                // show the canvas again, hopefully it didn't blink
+                applyVisibility('visible');
+                return false;
+            }
+
+            function degreesToRadians(deg) {
+                return (Math.PI * deg) / 180;
+            }
+
+            function eleFromPoint(x, y) {
+                var element = document.elementFromPoint(x, y);
+                return element && element.nodeType === 3 ? element.parentNode : element;
+            }
 
             function shouldRemoveElement(element) {
                 return element && element.tagName &&
@@ -813,17 +866,27 @@ var LazerGoat = (function() {
                 this.gameContainer.appendChild(this.navigation);
 
                 // points
-                this.points = document.createElement('span');
-                this.points.id = 'ASTEROIDS-POINTS';
-                with ( this.points.style ) {
-                    font = '28pt Arial, sans-serif';
-                    fontWeight = 'bold';
-                }
-                this.points.className = "ASTEROIDSYEAH";
+                this.points = htmlToElement('<span id="ASTEROIDS-POINTS" style="font: 28pt bold Arial, sans-serif;" class="ASTEROIDSYEAH"></span>');
                 this.navigation.appendChild(this.points);
 
                 var instructions = document.createElement('div');
-                instructions.innerHTML = "<hr>To move: arrow keys or wasd.<br>To Shoot: spacebar.<br>To fire Torpedo: Hold T to build power.";
+                var ins = `
+                    <table>
+                    <tr>
+                        <th>To Move</th>
+                        <td>Arrow Keys, or <kbd>WASD</kbd></td>
+                    </tr>
+                    <tr>
+                        <th>To Shoot</th>
+                        <td>Space Bar</td>
+                    </tr>
+                    <tr>
+                        <th>To fire Photon Torpedo</th>
+                        <td>Hold <kbd>T</kbd> to build power, then release.</td>
+                    </tr>
+                    </table>
+                `;
+                instructions.innerHTML = ins;
                 this.navigation.appendChild(instructions);
 
             } else {
@@ -996,6 +1059,8 @@ var LazerGoat = (function() {
             this.ctx.drawBullets = function(bullets) {
                 for ( var i = 0; i < bullets.length; i++ ) {
                     this.beginPath();
+                    this.strokeStyle = '#000';
+                    this.fillStyle = '#000';
                     this.arc(bullets[i].pos.x, bullets[i].pos.y, bulletRadius, 0, PI_SQ, true);
                     this.closePath();
                     this.fill();
@@ -1003,6 +1068,45 @@ var LazerGoat = (function() {
             };
 
             this.ctx.drawTorpedos = function(torpedos) {
+                for ( var i = 0; i < torpedos.length; i++ ) {
+                    var radius = torpedos[i].currentRadius;
+                    drawStar(torpedos[i].pos.x, torpedos[i].pos.y, 15, radius, radius/3, this);
+                }
+            };
+
+            function drawStar(cx, cy, spikes, outerRadius, innerRadius, ctx) {
+                var rot = Math.PI / 2 * 3;
+                var x = cx;
+                var y = cy;
+                var step = Math.PI / spikes;
+
+                ctx.strokeSyle = "#000";
+                ctx.beginPath();
+                ctx.moveTo(cx, cy - outerRadius);
+                for (i = 0; i < spikes; i++) {
+                    x = cx + Math.cos(rot) * outerRadius;
+                    y = cy + Math.sin(rot) * outerRadius;
+                    ctx.lineTo(x, y);
+                    rot += step;
+
+                    x = cx + Math.cos(rot) * innerRadius;
+                    y = cy + Math.sin(rot) * innerRadius;
+                    ctx.lineTo(x, y);
+                    rot += step
+                }
+                ctx.lineTo(cx, cy - outerRadius);
+                ctx.closePath();
+                ctx.lineWidth=5;
+                ctx.strokeStyle='blue';
+                ctx.stroke();
+                ctx.fillStyle='skyblue';
+                ctx.fill();
+
+            }
+
+
+
+            this.ctx.drawTorp = function(torpedos) {
                 for ( var i = 0; i < torpedos.length; i++ ) {
                     this.beginPath();
                     var radius = that.torpedoPowerLevel * 20;
@@ -1126,11 +1230,12 @@ var LazerGoat = (function() {
                 // fire
                 if ( this.keysPressed[code(' ')] && nowTime - this.firedAt > timeBetweenFire ) {
                     this.bullets.unshift({
-                        'dir': this.dir.cp(),
-                        'pos': this.pos.cp(),
-                        'startVel': this.vel.cp(),
-                        'cameAlive': nowTime,
-                        'isTorpedo': false
+                        dir: this.dir.cp(),
+                        pos: this.pos.cp(),
+                        startVel: this.vel.cp(),
+                        cameAlive: nowTime,
+                        isTorpedo: false,
+                        currentRadius: 1
                     });
 
                     this.firedAt = nowTime;
@@ -1144,11 +1249,12 @@ var LazerGoat = (function() {
                 if (that.fireTorpedo) {
                     that.fireTorpedo = false;
                     this.bullets.unshift({
-                        'dir': this.dir.cp(),
-                        'pos': this.pos.cp(),
-                        'startVel': this.vel.cp(),
-                        'cameAlive': nowTime,
-                        'isTorpedo': true
+                        dir: this.dir.cp(),
+                        pos: this.pos.cp(),
+                        startVel: this.vel.cp().mul(0.2),
+                        cameAlive: nowTime,
+                        isTorpedo: true,
+                        currentRadius: 1
                     });
 
                     bah.play();
@@ -1252,20 +1358,26 @@ var LazerGoat = (function() {
                         continue;
                     }
 
-                    // bullets should only live for 2 seconds
-                    if ( nowTime - bullet.cameAlive > 2000 ) {
+                    // torpedos should only live for 5 seconds
+                    if ( nowTime - bullet.cameAlive > 5000 ) {
                         this.bullets.splice(i, 1);
                         forceChange = true;
                         continue;
                     }
 
-                    var bulletVel = bullet.dir.setLengthNew(bulletSpeed * tDelta).add(bullet.startVel.mulNew(tDelta));
+                    var age = now() - bullet.cameAlive;
+                    var bigSmallPhase = Math.sin(age / 100);
+                    var baseRadius = this.torpedoPowerLevel * 20;
+                    var radius = baseRadius + (bigSmallPhase * 10);
+                    bullet.currentRadius = radius;
+
+                    var bulletVel = bullet.dir.setLengthNew(torpedoSpeed * tDelta).add(bullet.startVel.mulNew(tDelta));
 
                     bullet.pos.add(bulletVel);
                     boundsCheck(bullet.pos);
 
                     // check collisions
-                    var murdered = getElementFromPoint(bullet.pos.x, bullet.pos.y);
+                    var murdered = getFirstElementWithinCircle(bullet.pos.x, bullet.pos.y, bullet.currentRadius);
                     if (shouldRemoveElement(murdered)) {
                         didKill = true;
                         addParticles(bullet.pos);
